@@ -3,6 +3,8 @@ import numpy as np
 import networkx as nx
 import random
 import itertools
+import scipy.stats
+
 
 def dico_alphabet() -> dict[str: int]:
     """
@@ -144,6 +146,9 @@ def apprentissage_markov_k_mers(sequences: set[str], K: int) -> tuple[np.array]:
     PI = np.zeros((1, 27**K), dtype=float)
     A = np.zeros((27**K, 27**K), dtype=float)
 
+    # (!)* -> (!)*
+    A[27**K - 1, 27**K - 1] = 1
+
     for sequence in sequences:
         PI[0, alphabet[sequence[0: 0+K]]] += 1
 
@@ -161,7 +166,8 @@ def apprentissage_markov_k_mers(sequences: set[str], K: int) -> tuple[np.array]:
 
     for ligne in range(A.shape[0]):
         if np.sum(A[ligne, :]) == 0:
-            A[ligne, ligne] = 1
+            # PseudoCount
+            A[ligne, :] += 1
         A[ligne, :] = A[ligne, :]/np.sum(A[ligne, :])
 
     return PI/np.sum(PI), A
@@ -235,3 +241,20 @@ def generer_k_mers(A: np.array, PI: np.array, K: int, limite: int = 100) -> str:
                     break
     
     return "".join(list(map(lambda x: alphabet_inv[x], sequence)))
+
+
+def student(X, Y, alpha) -> bool:
+    """"""
+    n, m = len(X), len(Y)
+    
+    var_X = np.var(X, ddof=1)
+    var_Y = np.var(Y, ddof=1)
+
+    std = np.sqrt(((n - 1) * var_X + (m - 1) * var_Y) / (n + m - 2))
+    t_stat = (np.mean(X) - np.mean(Y)) / (std * np.sqrt(1 / n + 1 / m))
+
+    df = n + m - 2
+
+    quantile = scipy.stats.t.ppf(1 - alpha / 2, df)
+
+    return bool(abs(t_stat) > quantile)
